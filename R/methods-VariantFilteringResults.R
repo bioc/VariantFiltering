@@ -384,7 +384,7 @@ setMethod("filteredVariants", signature(x="VariantFilteringResults"),
               if (is.na(minPhastCons(x)))
                 mtNoMinPhastCons <- match("phastCons", colnames(mcols(vars)))
               else {
-                rowsMask <- rowsMask & vars$phastCons >= minPhastcons(x)
+                rowsMask <- rowsMask & vars$phastCons >= minPhastCons(x)
                 rowsMask[is.na(rowsMask)] <- FALSE
               }
             }
@@ -498,7 +498,7 @@ setMethod("reportVariants", signature(vfResultsObj="VariantFilteringResults"),
                 conditionalPanel(condition="input.tsp == 'protein'", selectInput("aaChangeType", "Amino acid change type:",
                                                                      choices=c("Any", "Radical", "Conservative"))),
                 ## MAF tab
-                conditionalPanel(condition="input.tsp == 'maf'", numericInput('maxMAF', 'Maximum MAF:', 1.00)),
+                conditionalPanel(condition="input.tsp == 'maf'", numericInput('maxMAF', 'Maximum MAF:', 1.00, 0.00, 1.00)),
                 conditionalPanel(condition="input.tsp == 'maf'", helpText("Note: the maximum MAF cutoff is applied on",
                                                                           "the following selected human populations:")),
                 conditionalPanel(condition="input.tsp == 'maf'", checkboxInput('naMAF', 'MAF NAs', TRUE)),
