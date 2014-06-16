@@ -253,7 +253,7 @@ read_wm(FILE* fd, WeightMatrix* wm, char* errormsg) {
         char* q;
 
         q=token;
-        while ((*q++=tolower(*q)));      /* change keyword 'WM' to lowercase */
+        while ((*q=tolower(*q))) q++;      /* change keyword 'WM' to lowercase */
 
         wm->nvars=0;
         if (!strcmp(token,"wm")) {
