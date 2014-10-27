@@ -37,7 +37,7 @@ Class for annotation packages storing minimum allele frequency data.
 \S4method{keys}{MafDb}(x, keytype)
 \S4method{columns}{MafDb}(x)
 \S4method{select}{MafDb}(x, keys, columns, keytype)
-\S4method{annotateVariants}{MafDb}(annObj, variantsGR)
+\S4method{annotateVariants}{MafDb}(annObj, variantsGR, BPPARAM)
 }
 \arguments{
   \item{mafdb}{A \code{MafDb} object.}
@@ -53,10 +53,14 @@ Class for annotation packages storing minimum allele frequency data.
     \code{columns} method.}
   \item{annObj}{A \code{MafDb} object.}
   \item{variantsGR}{A \code{GRanges} object with the variants to annotate.}
+  \item{BPPARAM}{An object of class \code{BiocParallelParam} specifying parameters related to
+    the parallel execution of this function. See function \code{\link[BiocParallel]{bpparam}()}
+    from the \code{BiocParallel} package.}
 }
 \details{
-The \code{MafDb} class and associated methods serve the purpose of creating annotation packages that store
-minimum allele frequency data. Two such annotation packages are:
+The \code{MafDb} class and associated methods serve the purpose of creating
+annotation packages that store minimum allele frequency data. Two such
+annotation packages are:
 
 \tabular{ll}{
   \code{MafDb.ALL.wgs.phase1.release.v3.20101123} \tab MAF values from the 1000 Genomes project
@@ -67,6 +71,26 @@ minimum allele frequency data. Two such annotation packages are:
         \url{http://evs.gs.washington.edu/evs_bulk_data/ESP6500SI-V2-SSA137.dbSNP138-rsIDs.snps_indels.vcf.tar.gz}. \cr
 }
 
+This object class tries to reduce the disk space required to store allele frequencies (AFs)
+for millions of SNPs by coding AF float values, which range between 0 and 1, into a single-byte
+\code{raw} object type. To achieve this, the original AF values are rounded and coded as follows:
+
+\itemize{
+  \item AF < 0.001 values are rounded to 4 digits, where values 0, 0.0001, ..., 0.0009 are coded
+        as raw byte values 1 to 10.
+  \item AF < 0.01 values are rouneded to 3 digits, where values 0.001, ... 0.009, are coded as
+        raw byte values 11 to 19.
+  \item AF >= 0.01 values are rounded to 2 digits and coded as raw byte values 20 to 119.
+  \item AF \code{NA} values are coded to raw byte value of 255. Note that by default \code{NA}
+        values are coded by the raw byte value 0 but this corresponds by default to the null
+        string when raw byte values are coerced into char. This precludes using this original coding
+        of \code{NA} values.
+}
+
+A further compression of these data is performed in the cases of variants with mutiple
+alternative alleles. In those cases, instead of storing the AF of each alternate allele only
+the maximum AF value is stored and as alternate allele the string concatenation of all alleles,
+separated by a slash character, is stored.
 }
 \value{.}
 \author{R. Castelo}
