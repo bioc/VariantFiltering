@@ -20,7 +20,7 @@ importMethodsFrom(DBI, dbListFields)
 importMethodsFrom(RSQLite, dbConnect,
                            dbDisconnect,
                            dbGetQuery,
-                           dbBeginTransaction,
+                           dbBegin,
                            dbGetPreparedQuery,
                            dbCommit)
 importMethodsFrom(BSgenome, referenceGenome,
@@ -35,6 +35,8 @@ importMethodsFrom(GenomeInfoDb, "seqinfo<-",
                                 "seqlevelsStyle<-",
                                 "isCircular",
                                 "isCircular<-",
+                                genome,
+                                "genome<-",
                                 releaseName)
 importMethodsFrom(VariantAnnotation, readVcf,
                                      scanVcfHeader,
