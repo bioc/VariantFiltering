@@ -78,7 +78,7 @@ setMethod("VariantFilteringParam", signature(vcfFilenames="character"),
 
             ## those VCFs without genome information take the genome information from
             ## VCFs with genome information (if any)
-            wh0 <- sapply(seqinfos, length) == 0
+            wh0 <- which(sapply(seqinfos, length) == 0)
             if (length(wh0) > 0 && length(wh) > 0) {
               seqinfos[wh0] <- seqinfos[wh[1]]
               warning(sprintf("Genome information missing in VCF file(s) %s is taken from VCF file %s.",
@@ -134,7 +134,7 @@ setMethod("VariantFilteringParam", signature(vcfFilenames="character"),
             }
 
             ## when no VCF has genome information, this information is taken from the TxDb package
-            wh0 <- sapply(seqinfos, length) == 0
+            wh0 <- which(sapply(seqinfos, length) == 0)
             if (length(wh0) > 0) {
               seqinfos[wh0] <- seqinfo(txdb)
               warning(sprintf("No genome information available from any VCF file. This information will be taken from the transcript-centric package %s, thus assuming a genome version %s with %s chromosome nomenclature\n",
