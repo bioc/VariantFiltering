@@ -4,7 +4,6 @@ setMethod("unrelatedIndividuals", signature(param="VariantFilteringParam"),
   callobj <- match.call()
   callstr <- deparse(callobj)
   input_list <- as.list(path(param$vcfFiles))
-##  ped <- param@pedFilename              
   sinfo <- param$seqInfos[[1]]
   orgdb <- param$orgdb
   txdb <- param$txdb
@@ -41,7 +40,7 @@ setMethod("unrelatedIndividuals", signature(param="VariantFilteringParam"),
 
   homalt <- geno(vcf1)$GT == "1/1" | geno(vcf1)$GT == "1|1"
   colnames(homalt) <- paste0("homALT_", colnames(homalt))
-  homalt <- homalt[names(unrelated_annotated), ]
+  homalt <- homalt[unrelated_annotated$IDX, , drop=FALSE]
   rownames(homalt) <- NULL
   mcols(unrelated_annotated) <- cbind(mcols(unrelated_annotated), DataFrame(homalt))
   homalt <- DataFrame(HomozygousAlt=CharacterList(apply(homalt, 1,
@@ -53,7 +52,7 @@ setMethod("unrelatedIndividuals", signature(param="VariantFilteringParam"),
   het <- geno(vcf1)$GT == "0/1" | geno(vcf1)$GT == "0|1" |
          geno(vcf1)$GT == "1/0" | geno(vcf1)$GT == "1|0"
   colnames(het) <- paste0("het_", colnames(het))
-  het <- het[names(unrelated_annotated), ]
+  het <- het[unrelated_annotated$IDX, , drop=FALSE]
   rownames(het) <- NULL
   mcols(unrelated_annotated) <- cbind(mcols(unrelated_annotated), DataFrame(het))
   het <- DataFrame(Heterozygous=CharacterList(apply(het, 1,
@@ -64,7 +63,7 @@ setMethod("unrelatedIndividuals", signature(param="VariantFilteringParam"),
 
   homref <- geno(vcf1)$GT == "0/0" | geno(vcf1)$GT == "0|0"
   colnames(homref) <- paste0("homREF_", colnames(homref))
-  homref <- homref[names(unrelated_annotated), ]
+  homref <- homref[unrelated_annotated$IDX, , drop=FALSE]
   rownames(homref) <- NULL
   mcols(unrelated_annotated) <- cbind(mcols(unrelated_annotated), DataFrame(homref))
   homref <- DataFrame(HomozygousRef=CharacterList(apply(homref, 1,
