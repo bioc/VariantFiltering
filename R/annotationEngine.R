@@ -54,7 +54,7 @@ annotationEngine <- function(variantsGR, orgdb, txdb, snpdb, radicalAAchangeMatr
   vnames2 <- vnames
   vnames2 <- rep(NA_character_, length(vnames))
 
-  mt <- gregexpr("^[A-Z0-9]+:[0-9]+_[ACGT/]+", vnames)
+  mt <- gregexpr("^[a-zA-Z0-9]+:[0-9]+_[ACGT/]+", vnames)
   mtstart <- unlist(mt, use.names=FALSE)
   mtlength <- sapply(mt, attr, "match.length")
   vnames2[mtstart != -1] <- substr(vnames[mtstart != -1], mtstart[mtstart != -1], mtlength[mtstart != -1])
@@ -698,8 +698,9 @@ typeOfVariants <- function(variantsGR) {
     wref <- nchar(variantsGR$REF)
     walt <- nchar(variantsGR$ALT)
     type <- factor(rep("SNV", times=length(wref)), levels=c("InDel", "MNV", "SNV"))
-    type[all(wref != walt)] <- "InDel"
+    type[any(wref != walt)] <- "InDel"
     type[all(wref == walt) & wref != 1] <- "MNV"
+    stopifnot(all(wref[type == "SNV"] == 1)) ## QC
     type
   }
 
