@@ -586,7 +586,7 @@ setMethod("annotateVariants", signature(annObj="OrgDb"),
                                            OMIM=rep(NA_character_, times=length(entrezIDs)))
               if (sum(!maskNAs) > 0) {
                 uniqEntrezIDs <- unique(entrezIDs[!maskNAs])
-                res <- select(annObj, keys=uniqEntrezIDs, columns=c("SYMBOL", "OMIM"), keytype="ENTREZID")
+                res <- select(annObj, keys=as.character(uniqEntrezIDs), columns=c("SYMBOL", "OMIM"), keytype="ENTREZID")
                 symxentrezID <- sapply(split(res$SYMBOL, res$ENTREZID),
                                        function(x) paste(unique(x), collapse=", "))
                 omimxentrezID <- sapply(split(res$OMIM, res$ENTREZID),
@@ -611,7 +611,7 @@ setMethod("annotateVariants", signature(annObj="TxDb"),
               txlevel_annot <- DataFrame(TXNAME=rep(NA_character_, times=length(txIDs)))
               if (sum(!maskNAs) > 0) {
                 uniqTxIDs <- unique(txIDs[!maskNAs])
-                res <- select(annObj, keys=uniqTxIDs, columns="TXNAME", keytype="TXID")
+                res <- select(annObj, keys=as.character(uniqTxIDs), columns="TXNAME", keytype="TXID")
                 txnamextxID <- sapply(split(res$TXNAME, res$TXID),
                                        function(x) paste(unique(x), collapse=", "))
                 txlevel_annot[!maskNAs, ] <- DataFrame(TXNAME=txnamextxID[txIDs[!maskNAs]])
