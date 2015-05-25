@@ -96,7 +96,9 @@ annotationEngine <- function(variantsGR, param, BPPARAM=bpparam("SerialParam")) 
   ## at the moment we are not interested in intergenic variants and we also leave promoter region
   ## boundaries at their default value. This could be parametrized if needed by the 'VariantFilteringParam' input object
   message("Annotating location with VariantAnnotation::locateVariants()")
-  located_variantsGR <- locateVariants(query=as(variantsGR, "GRanges"), subject=txdb,
+  variantsGRgr <- as(variantsGR, "GRanges")
+  strand(variantsGRgr) <- "*" ## to fix the fact that VRanges objects are enforced to have '+' strand
+  located_variantsGR <- locateVariants(query=variantsGRgr, subject=txdb,
                                        region=AllVariants(intergenic=IntergenicVariants(0, 0)))
   variantsGR_annotated <- variantsGR[located_variantsGR$QUERYID] ## REPLACE variantsGR_annotated by variantsGR ???
   variantsGR_annotated$LOCATION <- located_variantsGR$LOCATION
@@ -157,6 +159,7 @@ annotationEngine <- function(variantsGR, param, BPPARAM=bpparam("SerialParam")) 
     rmcols <- match(c("TXID", "CDSID", "GENEID"), colnames(mcols(variantsGR_annotated_coding_exp)))
     mcols(variantsGR_annotated_coding_exp) <- mcols(variantsGR_annotated_coding_exp)[, -rmcols]
 
+    strand(variantsGR_annotated_coding_exp) <- "*" ## to fix the fact that VRanges are enforced to have '+' strand
     GRanges_coding_uq <- predictCoding(query=variantsGR_annotated_coding_exp,
                                        subject=txdb, seqSource=bsgenome, genetic.code=geneticCode,
                                        varAllele=DNAStringSet(alt(variantsGR_annotated_coding)))
