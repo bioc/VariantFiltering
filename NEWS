@@ -7,6 +7,8 @@ USER VISIBLE CHANGES
 
     o Added two new annotated regions coded as fiveSpliceSite and threeSpliceSite and the scoring of their binding affyinity, if scoring matrices are provided.
 
+    o Analysis methods (autosomalDominant(), unrelatedIndividuals(), etc.) can take an extra argument called 'svparam' with an 'ScanVcfParam' object to restrict rows and columns of the input VCF file that have to be analyzed.
+
 BUG FIXES
 
     o Fix on the scores() method for PhastConsDb objects, that was affecting multiple-nucleotide ranges from an input GRanges object with unordered sequence names.
