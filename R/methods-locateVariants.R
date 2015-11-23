@@ -12,6 +12,16 @@ setMethod("locateVariants", c("GRanges", "GRangesList", "ThreeSpliceSiteVariants
             .threeSpliceSites(query, subject, region, ignore.strand=ignore.strand, asHits=asHits)
           })
 
+## adapted from function VariantAnnotation:::.location
+.location <-
+    function(length=0, value=NA)
+{
+    levels <- c("spliceSite", "intron", "fiveUTR", "threeUTR",
+        "coding", "intergenic", "promoter", "fiveSpliceSite", "threeSpliceSite")
+    factor(rep(value, length), levels=levels)
+}
+
+
 
 ## adapted from function VariantAnnotation:::.spliceSite
 .fiveSpliceSites <- function(query, subject, region, ignore.strand, asHits, ...) {
@@ -29,7 +39,17 @@ setMethod("locateVariants", c("GRanges", "GRangesList", "ThreeSpliceSiteVariants
   if (asHits)
     return(VariantAnnotation:::.consolidateHits(fo, length(query), length(subject),
                                                 elementLengths(subject)))
+
+  res <- GRanges()
+  values(res) <- DataFrame(LOCATION=character(0),
+                           LOCSTART=integer(), LOCEND=integer(),
+                           QUERYID=integer(), TXID=integer(),
+                           CDSID=IntegerList(), GENEID=character(),
+                           PRECEDEID=CharacterList(),
+                           FOLLOWID=CharacterList())
+
   if (length(fo) > 0) {
+
     df <- unique(data.frame(queryid=queryHits(fo),
                             usubjectid=subjectHits(fo),
                             subjectid=togroup(subject)[subjectHits(fo)]))
@@ -37,28 +57,24 @@ setMethod("locateVariants", c("GRanges", "GRangesList", "ThreeSpliceSiteVariants
     ## restrict splice site annotations to those occurring in introns of a minimum length
     df <- df[width(usub)[df$usubjectid] > minIntronLength(region), ]
 
-    GRanges(seqnames=seqnames(query)[df$queryid],
-            ranges=IRanges(ranges(query)[df$queryid]),
-            strand=strand(int_start)[df$usubjectid],
-            LOCATION=rep("fiveSpliceSite", length(df$queryid)),
-            LOCSTART=start(int_start)[df$usubjectid],
-            LOCEND=end(int_start)[df$usubjectid],
-            QUERYID=df$queryid,
-            TXID=as.integer(names(subject)[df$subjectid]),
-            CDSID=IntegerList(integer(0)),
-            GENEID=NA_character_,
-            PRECEDEID=CharacterList(character(0)),
-            FOLLOWID=CharacterList(character(0)))
-  } else {
-    res <- GRanges()
-    values(res) <- DataFrame(LOCATION=character(0),
-                             LOCSTART=integer(), LOCEND=integer(),
-                             QUERYID=integer(), TXID=integer(),
-                             CDSID=IntegerList(), GENEID=character(),
-                             PRECEDEID=CharacterList(),
-                             FOLLOWID=CharacterList())
-    res
+    if (nrow(df) > 0) {
+      GRanges(seqnames=seqnames(query)[df$queryid],
+              ranges=IRanges(ranges(query)[df$queryid]),
+              strand=strand(int_start)[df$usubjectid],
+              LOCATION=.location(length(df$queryid), "fiveSpliceSite"),
+              LOCSTART=start(int_start)[df$usubjectid],
+              LOCEND=end(int_start)[df$usubjectid],
+              QUERYID=df$queryid,
+              TXID=as.integer(names(subject)[df$subjectid]),
+              CDSID=IntegerList(integer(0)),
+              GENEID=NA_character_,
+              PRECEDEID=CharacterList(character(0)),
+              FOLLOWID=CharacterList(character(0)))
+    }
+
   }
+
+  res
 }
 
 ## adapted from function VariantAnnotation:::.spliceSite
@@ -88,7 +104,7 @@ setMethod("locateVariants", c("GRanges", "GRangesList", "ThreeSpliceSiteVariants
     GRanges(seqnames=seqnames(query)[df$queryid],
             ranges=IRanges(ranges(query)[df$queryid]),
             strand=strand(int_end)[df$usubjectid],
-            LOCATION=rep("threeSpliceSite", length(df$queryid)),
+            LOCATION=.location(length(df$queryid), "threeSpliceSite"),
             LOCSTART=start(int_end)[df$usubjectid],
             LOCEND=end(int_end)[df$usubjectid],
             QUERYID=df$queryid,
