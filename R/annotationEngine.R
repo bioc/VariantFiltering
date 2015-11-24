@@ -683,10 +683,10 @@ typeOfVariants <- function(variantsVR) {
   if (length(variantsVR) > 0) {
     type <- factor(rep("SNV", times=length(variantsVR)),
                    levels=c("SNV", "Insertion", "Deletion", "MNV", "Delins"))
-    type[isInsertion(variantsVR)] <- "Insertion"
-    type[isDeletion(variantsVR)] <- "Deletion"
-    type[isSubstitution(variantsVR) & !isSNV(variantsVR)] <- "MNV"
-    type[isDelins(variantsVR)] <- "Delins"
+    type[as.vector(isInsertion(variantsVR))] <- "Insertion"
+    type[as.vector(isDeletion(variantsVR))] <- "Deletion"
+    type[as.vector(isSubstitution(variantsVR) & !isSNV(variantsVR))] <- "MNV"
+    type[as.vector(isDelins(variantsVR))] <- "Delins"
   }
 
   DataFrame(TYPE=type)
@@ -713,7 +713,7 @@ variantHGVS <- function(variantsVR) {
   altAllele <- as.character(variantsVR$varAllele)
 
   maskCoding <- variantsVR$LOCATION == "coding"
-  altAllele[!maskCoding] <- .adjustForStrandSense(variantsVR[!maskCoding], alt(variantsVR)[!maskCoding])
+  altAllele[!maskCoding] <- as.character(.adjustForStrandSense(variantsVR[!maskCoding], alt(variantsVR)[!maskCoding]))
 
   locStartAllele <- as.integer(start(variantsVR$CDSLOC))
   locEndAllele <- as.integer(end(variantsVR$CDSLOC))
