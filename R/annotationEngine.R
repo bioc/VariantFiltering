@@ -1042,7 +1042,8 @@ aminoAcidChanges <- function(variantsVR, rAAch) {
     if (wregion == width(wmDonorSites)) {
 
       # get alternative allele adjusted by strand, we need a DNAStringSetList to use replaceAt() below
-      altAlleleStrandAdjusted <- DNAStringSetList(strsplit(alt(GRanges_annotSS), split="", fixed=TRUE))
+      altAlleleStrandAdjusted <- DNAStringSetList(strsplit(as.character(alt(GRanges_annotSS)),
+                                                           split="", fixed=TRUE))
       altAlleleStrandAdjusted <- .adjustForStrandSense(GRanges_annotSS, altAlleleStrandAdjusted)
 
       stopifnot(all(!is.na(GRanges_annotSS$LOCSTRAND))) ## QC
@@ -1102,7 +1103,8 @@ aminoAcidChanges <- function(variantsVR, rAAch) {
     if (wregion == width(wmAcceptorSites)) {
 
       # get alternative allele adjusted by strand, we need a DNAStringSetList to use replaceAt() below
-      altAlleleStrandAdjusted <- DNAStringSetList(strsplit(alt(GRanges_annotSS), split="", fixed=TRUE))
+      altAlleleStrandAdjusted <- DNAStringSetList(strsplit(as.character(alt(GRanges_annotSS)),
+                                                           split="", fixed=TRUE))
       altAlleleStrandAdjusted <- .adjustForStrandSense(GRanges_annotSS, altAlleleStrandAdjusted)
 
       stopifnot(all(!is.na(GRanges_annotSS$LOCSTRAND))) ## QC
@@ -1267,7 +1269,8 @@ aminoAcidChanges <- function(variantsVR, rAAch) {
 
     ## adjust alternate allele for strand since the adjusted varAllele only exists for coding variants
     ## we need a DNAStringSetList to use replaceAt() below
-    altAlleleStrandAdjusted <- DNAStringSetList(strsplit(alt(GRanges_intron_SNV), split="", fixed=TRUE))
+    altAlleleStrandAdjusted <- DNAStringSetList(strsplit(as.character(alt(GRanges_intron_SNV)),
+                                                         split="", fixed=TRUE))
     altAlleleStrandAdjusted <- .adjustForStrandSense(GRanges_intron_SNV, altAlleleStrandAdjusted)
 
     ## need GRanges to fetch genome sequence through getSeq()
