@@ -636,7 +636,7 @@ setMethod("allVariants", signature(x="VariantFilteringResults"),
             if (groupBy[1] %in% "sample") {
               f <- sampleNames(x@variants)
               if (all(is.na(f)))
-                f <- rep("nosample")
+                f <- rep("nosample", length(x))
               vars <- split(x@variants, f)
             } else if (groupBy[1] %in% colnames(mcols(x@variants)))
               vars <- split(x@variants, mcols(x@variants)[, groupBy])

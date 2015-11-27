@@ -126,3 +126,109 @@ setMethod("autosomalRecessiveHomozygous", signature(param="VariantFilteringParam
       minPhastCons=NA_real_, minPhylostratumIndex=NA_integer_,
       minScore5ss=NA_real_, minScore3ss=NA_real_, minCUFC=0)
 })
+
+
+## build a logical mask whose truth values correspond to variants that segregate
+## according to an autosomal recessive homozygous inheritance model
+.autosomalRecessiveHomozygousMask <- function(vObj, pedDf, bsgenome, use=c("all.obs", "complete.obs", "everything"),
+                                              penetrance=1) {
+
+  use <- match.arg(use)
+
+  if (class(vObj) != "VRanges" && class(vObj) != "CollapsedVCF")
+    stop("Argument 'vObj' should be either a 'VRanges' or a 'CollapsedVCF' object.")
+
+  stopifnot(all(colnames(pedDf) %in% c("FamilyID", "IndividualID", "FatherID", "MotherID", "Gender", "Phenotype"))) ## QC
+
+  nsamples <- 0
+  if (class(vObj) == "VRanges")
+    nsamples <- nlevels(sampleNames(vObj))
+  else if (class(vObj == "CollapsedVCF"))
+    nsamples <- as.integer(ncol(vObj))
+
+  if (missing(penetrance) || is.null(penetrance))
+    penetrance <- nsamples
+
+  if (class(penetrance) == "numeric" && (penetrance <= 0 || penetrance > 1))
+    stop("When penetrance is a real number, then it should take values > 0 and <= 1.")
+  else if (class(penetrance) == "integer" && (penetrance <= 0 || penetrance > nsamples))
+    stop(sprintf("When penetrance is an integer (%d), then it should take values > 0 and <= %d (# of samples).",
+                 penetrance, nsamples))
+
+  if (class(penetrance) == "numeric")
+    penetrance <- ceiling(penetrance*nsamples)
+
+  ## assuming Phenotype == 2 means affected and Phenotype == 1 means unaffected
+  if (sum(pedDf$Phenotype  == 2) < 1)
+    stop("No affected individuals detected. Something is wrong with the PED file.")
+  
+  unaff <- pedDf[pedDf$Phenotype == 1, ]
+  aff <- pedDf[pedDf$Phenotype == 2, ]
+  
+  gt <- NULL
+  if (class(vObj) == "VRanges")
+    gt <- do.call("cbind", split(vObj$GT, sampleNames(vObj)))
+  else if (class(vObj) == "CollapsedVCF")
+    gt <- geno(vObj)$GT
+
+  missingMask <- apply(gt, 1, function(x) any(x == "." | x == "./." | x == ".|."))
+  
+  if (any(missingMask) & use == "all.obs")
+    stop("There are missing genotypes and current policy to deal with them is 'all.obs', which does not allow them.")
+
+  ## restrict upfront variants to those in autosomal chromosomes
+  autosomalMask <- seqnames(vObj) %in% extractSeqlevelsByGroup(organism(bsgenome),
+                                                               seqlevelsStyle(vObj),
+                                                               group="auto")
+
+  ## build logical masks of carriers (unaffected) and affected individuals
+  ## variants in carriers should be heterozygous and affected should be homozygous alternative
+  carriersMask <- rep(TRUE, times=length(vObj))
+  if (nrow(unaff) > 0) {
+    unaffgt <- gt[, unaff$IndividualID, drop=FALSE]
+    if (any(missingMask) & use == "everything")
+      unaffgt[unaffgt == "." | unaffgt == "./." | unaffgt == ".|."] <- NA_character_
+    carriersMask <- unaffgt == "0/1" | unaffgt == "0|1" | unaffgt == "1|0"
+    carriersMask <- apply(carriersMask, 1, all)
+    rm(unaffgt)
+  }
+
+  affgt <- gt[, aff$IndividualID, drop=FALSE]
+  affectedMask <- affgt == "1/1" | affgt == "1|1"
+  if (penetrance < nsamples)
+    affectedMask <- apply(affectedMask, 1, function(x, p) sum(x) <= p, penetrance)
+  else
+    affectedMask <- apply(affectedMask, 1, all)
+  rm(affgt)
+
+  ## build logical mask for variants that segregate as an autosomal recessive homozygous trait
+  mask <- autosomalMask & carriersMask & affectedMask
+  if (any(missingMask) & use == "complete.obs")
+    mask <- mask & !missingMask
+
+  mask[is.na(mask)] <- FALSE
+
+  mask
+}
+
+.autosomalRecessiveHomozygousFilter <- function(x) {
+
+  pedFilename <- param(x)$pedFilename
+  if (is.null(pedFilename))
+    stop("Please specify a PED file name in the parameter object.")
+
+  if (!file.exists(pedFilename))
+    stop(sprintf("could not open the PED file %s.", pedFilename))
+
+  pedDf <- read.table(pedFilename, header=FALSE, stringsAsFactors=FALSE)
+  pedDf <- pedDf[, 1:6]
+  colnames(pedDf) <- c("FamilyID", "IndividualID", "FatherID", "MotherID", "Gender", "Phenotype")
+
+  ## assuming Phenotype == 2 means affected and Phenotype == 1 means unaffected
+  if (sum(pedDf$Phenotype  == 2) < 1)
+    stop("No affected individuals detected. Something is wrong with the PED file.")
+
+  .autosomalRecessiveHomozygousMask(vObj=allVariants(x, groupBy="nothing"), pedDf=pedDf,
+                                    bsgenome=param(x)$bsgenome, use="everything",
+                                    penetrance=cutoffs(x)$ARHOM)
+}
