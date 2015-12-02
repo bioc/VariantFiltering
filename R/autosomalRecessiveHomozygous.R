@@ -1,5 +1,9 @@
 setMethod("autosomalRecessiveHomozygous", signature(param="VariantFilteringParam"),
-          function(param, svparam=ScanVcfParam(), BPPARAM=bpparam("SerialParam")) {
+          function(param, svparam=ScanVcfParam(),
+                   use=c("everything", "complete.obs", "all.obs"),
+                   BPPARAM=bpparam("SerialParam")) {
+            
+  use <- match.arg(use)
 
   ## store call for reproducing it later
   callobj <- match.call()
@@ -60,21 +64,45 @@ setMethod("autosomalRecessiveHomozygous", signature(param="VariantFilteringParam
                                                                 group="auto")
     vcf <- vcf[autosomalMask, ]
 
+    gt <- geno(vcf)$GT
+    missingMask <- apply(gt, 1, function(x) any(x == "." | x == "./." | x == ".|."))
+
+    if (any(missingMask) && use == "all.obs")
+      stop("There are missing genotypes and current policy to deal with them is 'all.obs', which does not allow them.")
+
     ## build logical masks of carriers (unaffected) and affected individuals
     ## variants in carriers should be heterozygous and affected should be homozygous alternative
     carriersMask <- rep(TRUE, times=nrow(vcf))
     if (nrow(unaff) > 0) {
-      carriersMask <- geno(vcf)$GT[, unaff$IndividualID, drop=FALSE] == "0/1"
+      unaffgt <- gt[, unaff$IndividualID, drop=FALSE]
+      if (any(missingMask) && use == "everything")
+        unaffgt[unaffgt == "." | unaffgt == "./." | unaffgt == ".|."] <- NA_character_
+      carriersMask <- unaffgt == "0/1" | unaffgt == "0|1" | unaffgt == "1|0"
+      ## carriersMask <- geno(vcf)$GT[, unaff$IndividualID, drop=FALSE] == "0/1"
       carriersMask <- apply(carriersMask, 1, all)
+      rm(unaffgt)
     }
 
-    affectedMask <- geno(vcf)$GT[, aff$IndividualID, drop=FALSE] == "1/1"
+    affgt <- gt[, aff$IndividualID, drop=FALSE]
+    if (any(missingMask) & use == "everything")
+      affgt[affgt == "." | affgt == "./." | affgt == ".|."] <- NA_character_
+    affectedMask <- affgt == "1/1" | affgt == "1|1"
+    ## affectedMask <- geno(vcf)$GT[, aff$IndividualID, drop=FALSE] == "1/1"
     affectedMask <- apply(affectedMask, 1, all)
+    rm(affgt)
 
-    ## filter out variants that do not segregate as an autosomal recessive homozygous trait
-    vcf <- vcf[carriersMask & affectedMask, ]
+    caMask <- carriersMask & affectedMask
+    if (any(missingMask) & use == "complete.obs")
+      caMask <- caMask & !missingMask
 
-    if (any(carriersMask & affectedMask)) {
+    ## variants ultimately set to NA are discarded (should this be tuned by an argument?)
+    caMask[is.na(caMask)] <- FALSE
+
+    if (any(caMask)) {
+
+      ## filter out variants that do not segregate as an autosomal recessive homozygous trait
+      vcf <- vcf[caMask, ]
+
       ## coerce the VCF object to a VRanges object
       variants <- as(vcf, "VRanges")
 
@@ -130,7 +158,8 @@ setMethod("autosomalRecessiveHomozygous", signature(param="VariantFilteringParam
 
 ## build a logical mask whose truth values correspond to variants that segregate
 ## according to an autosomal recessive homozygous inheritance model
-.autosomalRecessiveHomozygousMask <- function(vObj, pedDf, bsgenome, use=c("all.obs", "complete.obs", "everything"),
+.autosomalRecessiveHomozygousMask <- function(vObj, pedDf, bsgenome,
+                                              use=c("everything", "complete.obs", "all.obs"),
                                               penetrance=1) {
 
   use <- match.arg(use)
@@ -140,11 +169,14 @@ setMethod("autosomalRecessiveHomozygous", signature(param="VariantFilteringParam
 
   stopifnot(all(colnames(pedDf) %in% c("FamilyID", "IndividualID", "FatherID", "MotherID", "Gender", "Phenotype"))) ## QC
 
-  nsamples <- 0
-  if (class(vObj) == "VRanges")
+  nsamples <- nvariants <- 0
+  if (class(vObj) == "VRanges") {
     nsamples <- nlevels(sampleNames(vObj))
-  else if (class(vObj == "CollapsedVCF"))
+    nvariants <- length(vObj)
+  } else if (class(vObj == "CollapsedVCF")) {
     nsamples <- as.integer(ncol(vObj))
+    nvariants <- nrow(vObj)
+  }
 
   if (missing(penetrance) || is.null(penetrance))
     penetrance <- nsamples
@@ -165,28 +197,32 @@ setMethod("autosomalRecessiveHomozygous", signature(param="VariantFilteringParam
   unaff <- pedDf[pedDf$Phenotype == 1, ]
   aff <- pedDf[pedDf$Phenotype == 2, ]
   
+  ## restrict upfront variants to those in autosomal chromosomes
+  snames <- as.character(seqnames(vObj))
+
+  ## mask variants and annotations in autosomes
+  autosomalMask <- snames %in% extractSeqlevelsByGroup(organism(bsgenome),
+                                                       seqlevelsStyle(vObj),
+                                                       group="auto")
+
+  ## fetch genotypes
   gt <- NULL
   if (class(vObj) == "VRanges")
-    gt <- do.call("cbind", split(vObj$GT, sampleNames(vObj)))
+    gt <- do.call("cbind", split(vObj$GT[autosomalMask], sampleNames(vObj)))
   else if (class(vObj) == "CollapsedVCF")
-    gt <- geno(vObj)$GT
+    gt <- geno(vObj)$GT[autosomalMask, , drop=FALSE]
 
   missingMask <- apply(gt, 1, function(x) any(x == "." | x == "./." | x == ".|."))
   
-  if (any(missingMask) & use == "all.obs")
+  if (any(missingMask) && use == "all.obs")
     stop("There are missing genotypes and current policy to deal with them is 'all.obs', which does not allow them.")
-
-  ## restrict upfront variants to those in autosomal chromosomes
-  autosomalMask <- seqnames(vObj) %in% extractSeqlevelsByGroup(organism(bsgenome),
-                                                               seqlevelsStyle(vObj),
-                                                               group="auto")
 
   ## build logical masks of carriers (unaffected) and affected individuals
   ## variants in carriers should be heterozygous and affected should be homozygous alternative
-  carriersMask <- rep(TRUE, times=length(vObj))
+  carriersMask <- rep(TRUE, times=nrow(gt))
   if (nrow(unaff) > 0) {
     unaffgt <- gt[, unaff$IndividualID, drop=FALSE]
-    if (any(missingMask) & use == "everything")
+    if (any(missingMask) && use == "everything")
       unaffgt[unaffgt == "." | unaffgt == "./." | unaffgt == ".|."] <- NA_character_
     carriersMask <- unaffgt == "0/1" | unaffgt == "0|1" | unaffgt == "1|0"
     carriersMask <- apply(carriersMask, 1, all)
@@ -194,21 +230,35 @@ setMethod("autosomalRecessiveHomozygous", signature(param="VariantFilteringParam
   }
 
   affgt <- gt[, aff$IndividualID, drop=FALSE]
+  if (any(missingMask) & use == "everything")
+    affgt[affgt == "." | affgt == "./." | affgt == ".|."] <- NA_character_
   affectedMask <- affgt == "1/1" | affgt == "1|1"
   if (penetrance < nsamples)
-    affectedMask <- apply(affectedMask, 1, function(x, p) sum(x) <= p, penetrance)
+    affectedMask <- apply(affectedMask, 1, function(x, p) sum(x, na.rm=TRUE) <= p, penetrance)
   else
     affectedMask <- apply(affectedMask, 1, all)
   rm(affgt)
 
-  ## build logical mask for variants that segregate as an autosomal recessive homozygous trait
-  mask <- autosomalMask & carriersMask & affectedMask
+  caMask <- carriersMask & affectedMask
   if (any(missingMask) & use == "complete.obs")
-    mask <- mask & !missingMask
+    caMask <- caMask & !missingMask
 
-  mask[is.na(mask)] <- FALSE
+  ## variants ultimately set to NA are discarded (should this be tuned by an argument?)
+  caMask[is.na(caMask)] <- FALSE
 
-  mask
+  ## build logical mask for variants that segregate as an autosomal recessive homozygous trait
+  arhomMask <- vector(mode="logical", length=nvariants) ## assume default values are FALSE
+
+  if (class(vObj) == "VRanges") {
+    nauto <- sum(autosomalMask)
+    idx <- split(1:nauto, sampleNames(vObj[autosomalMask]))
+    mask <- vector(mode="logical", length=nauto)
+    mask[unlist(idx, use.names=FALSE)] <- rep(caMask, times=nsamples)
+    arhomMask[autosomalMask] <- mask
+  } else if (class(vObj) == "CollapsedVCF")
+    arhomMask[autosomalMask] <- caMask
+
+  arhomMask
 }
 
 .autosomalRecessiveHomozygousFilter <- function(x) {

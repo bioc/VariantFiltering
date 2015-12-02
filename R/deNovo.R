@@ -106,7 +106,7 @@ setMethod("deNovo", signature(param="VariantFilteringParam"),
     varTypMask <- do.call("names<-", list(rep(TRUE, nlevels(annotated_variants$TYPE)),
                                           levels(annotated_variants$TYPE)))
   } else
-    warning("No variants segregate following an autosomal recessive homozygous inheritance model.")
+    warning("No variants segregate following a de novo inheritance model.")
 
   MAFpopMask <- NA
   if ("MafDb" %in% sapply(param$otherAnnotations, class)) {
