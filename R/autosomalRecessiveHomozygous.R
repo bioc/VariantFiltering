@@ -28,19 +28,14 @@ setMethod("autosomalRecessiveHomozygous", signature(param="VariantFilteringParam
   if (is.na(ped))
     stop("Please specify a PED file name when building the parameter object.")
 
-  if (!file.exists(ped))
-    stop(sprintf("could not open the PED file %s.", ped))
-
-  pedf <- read.table(ped, header=FALSE, stringsAsFactors=FALSE)
-  pedf <- pedf[, 1:6]
-  colnames(pedf) <- c("FamilyID", "IndividualID", "FatherID", "MotherID", "Gender", "Phenotype")
+  pedDf <- .readPEDfile(ped)
 
   ## assuming Phenotype == 2 means affected and Phenotype == 1 means unaffected
-  if (sum(pedf$Phenotype  == 2) < 1)
+  if (sum(pedDf$Phenotype  == 2) < 1)
     stop("No affected individuals detected. Something is wrong with the PED file.")
   
-  unaff <- pedf[pedf$Phenotype == 1, ]
-  aff <- pedf[pedf$Phenotype == 2, ]
+  unaff <- pedDf[pedDf$Phenotype == 1, ]
+  aff <- pedDf[pedDf$Phenotype == 2, ]
   
   annotationCache <- new.env() ## cache annotations when using VariantAnnotation::locateVariants()
   annotated_variants <- VRanges()
@@ -78,21 +73,19 @@ setMethod("autosomalRecessiveHomozygous", signature(param="VariantFilteringParam
       if (any(missingMask) && use == "everything")
         unaffgt[unaffgt == "." | unaffgt == "./." | unaffgt == ".|."] <- NA_character_
       carriersMask <- unaffgt == "0/1" | unaffgt == "0|1" | unaffgt == "1|0"
-      ## carriersMask <- geno(vcf)$GT[, unaff$IndividualID, drop=FALSE] == "0/1"
       carriersMask <- apply(carriersMask, 1, all)
       rm(unaffgt)
     }
 
     affgt <- gt[, aff$IndividualID, drop=FALSE]
-    if (any(missingMask) & use == "everything")
+    if (any(missingMask) && use == "everything")
       affgt[affgt == "." | affgt == "./." | affgt == ".|."] <- NA_character_
     affectedMask <- affgt == "1/1" | affgt == "1|1"
-    ## affectedMask <- geno(vcf)$GT[, aff$IndividualID, drop=FALSE] == "1/1"
-    affectedMask <- apply(affectedMask, 1, all)
+    affectedMask <- rowSums(affectedMask) == nrow(aff)
     rm(affgt)
 
     caMask <- carriersMask & affectedMask
-    if (any(missingMask) & use == "complete.obs")
+    if (any(missingMask) && use == "complete.obs")
       caMask <- caMask & !missingMask
 
     ## variants ultimately set to NA are discarded (should this be tuned by an argument?)
@@ -173,7 +166,7 @@ setMethod("autosomalRecessiveHomozygous", signature(param="VariantFilteringParam
   if (class(vObj) == "VRanges") {
     nsamples <- nlevels(sampleNames(vObj))
     nvariants <- length(vObj)
-  } else if (class(vObj == "CollapsedVCF")) {
+  } else if (class(vObj) == "CollapsedVCF") {
     nsamples <- as.integer(ncol(vObj))
     nvariants <- nrow(vObj)
   }
@@ -230,7 +223,7 @@ setMethod("autosomalRecessiveHomozygous", signature(param="VariantFilteringParam
   }
 
   affgt <- gt[, aff$IndividualID, drop=FALSE]
-  if (any(missingMask) & use == "everything")
+  if (any(missingMask) && use == "everything")
     affgt[affgt == "." | affgt == "./." | affgt == ".|."] <- NA_character_
   affectedMask <- affgt == "1/1" | affgt == "1|1"
   if (penetrance < nsamples)
@@ -240,7 +233,7 @@ setMethod("autosomalRecessiveHomozygous", signature(param="VariantFilteringParam
   rm(affgt)
 
   caMask <- carriersMask & affectedMask
-  if (any(missingMask) & use == "complete.obs")
+  if (any(missingMask) && use == "complete.obs")
     caMask <- caMask & !missingMask
 
   ## variants ultimately set to NA are discarded (should this be tuned by an argument?)
@@ -267,16 +260,7 @@ setMethod("autosomalRecessiveHomozygous", signature(param="VariantFilteringParam
   if (is.null(pedFilename))
     stop("Please specify a PED file name in the parameter object.")
 
-  if (!file.exists(pedFilename))
-    stop(sprintf("could not open the PED file %s.", pedFilename))
-
-  pedDf <- read.table(pedFilename, header=FALSE, stringsAsFactors=FALSE)
-  pedDf <- pedDf[, 1:6]
-  colnames(pedDf) <- c("FamilyID", "IndividualID", "FatherID", "MotherID", "Gender", "Phenotype")
-
-  ## assuming Phenotype == 2 means affected and Phenotype == 1 means unaffected
-  if (sum(pedDf$Phenotype  == 2) < 1)
-    stop("No affected individuals detected. Something is wrong with the PED file.")
+  pedDf <- .readPEDfile(param(x)$pedFilename)
 
   .autosomalRecessiveHomozygousMask(vObj=allVariants(x, groupBy="nothing"), pedDf=pedDf,
                                     bsgenome=param(x)$bsgenome, use="everything",
