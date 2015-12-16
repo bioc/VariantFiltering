@@ -28,10 +28,6 @@ setMethod("autosomalDominant", signature(param="VariantFilteringParam"),
 
   pedDf <- .readPEDfile(ped)
 
-  ## assuming Phenotype == 2 means affected and Phenotype == 1 means unaffected
-  if (sum(pedDf$Phenotype  == 2) < 1)
-    stop("No affected individuals detected. Something is wrong with the PED file.")
-  
   unaff <- pedDf[pedDf$Phenotype == 1, ]
   aff <- pedDf[pedDf$Phenotype == 2, ]
 
@@ -110,8 +106,9 @@ setMethod("autosomalDominant", signature(param="VariantFilteringParam"),
       variants <- .matchSeqinfo(variants, txdb, bsgenome)
   
       ## annotate variants
-      annotated_variants <- c(annotated_variants, annotationEngine(variants, param, annotationCache,
-                                                                   BPPARAM=BPPARAM))
+      annotated_variants <- c(annotated_variants,
+                              annotationEngine(variants, param, annotationCache,
+                                               BPPARAM=BPPARAM))
 
     }
 
@@ -153,10 +150,12 @@ setMethod("autosomalDominant", signature(param="VariantFilteringParam"),
 })
 
 ## build a logical mask whose truth values correspond to variants that segregate
-## according to an autosomal dominant inheritance model
+## according to an autosomal dominant inheritance model: variants in unaffected
+## individuals should be homozygous reference and in affected individuals should
+## be either homozygous alternative or heterozygous
 .autosomalDominantMask <- function(vObj, pedDf, bsgenome,
-                                              use=c("everything", "complete.obs", "all.obs"),
-                                              penetrance=1) {
+                                   use=c("everything", "complete.obs", "all.obs"),
+                                   penetrance=1) {
 
   use <- match.arg(use)
 
@@ -184,12 +183,20 @@ setMethod("autosomalDominant", signature(param="VariantFilteringParam"),
   aff <- pedDf[pedDf$Phenotype == 2, ]
 
   ## restrict upfront variants to those in autosomal chromosomes
+  ## we subset to the first element of the value returned by seqlevelsStyle()
+  ## to deal with cases in which only a subset of chromosomes is contained in
+  ## the input VCF (typically for teaching/example/illustration purposes) which
+  ## matches more than one chromosome style
   snames <- as.character(seqnames(vObj))
-
-  ## mask variants and annotations in autosomes
   autosomalMask <- snames %in% extractSeqlevelsByGroup(organism(bsgenome),
-                                                       seqlevelsStyle(vObj),
+                                                       seqlevelsStyle(vObj)[1],
                                                        group="auto")
+
+  ## build logical mask for variants that segregate as an autosomal dominant trait
+  adomMask <- vector(mode="logical", length=nvariants) ## assume default values are FALSE
+
+  if (!any(autosomalMask))
+    return(adomMask)
 
   ## fetch genotypes
   gt <- NULL
@@ -202,7 +209,6 @@ setMethod("autosomalDominant", signature(param="VariantFilteringParam"),
 
   if (any(missingMask) && use == "all.obs")
     stop("There are missing genotypes and current policy to deal with them is 'all.obs', which does not allow them.")
-
 
   unaffectedMask <- rep(TRUE, times=nrow(gt))
   if (nrow(unaff) > 0) {
@@ -228,9 +234,6 @@ setMethod("autosomalDominant", signature(param="VariantFilteringParam"),
   ## variants ultimately set to NA are discarded (should this be tuned by an argument?)
   uaMask[is.na(uaMask)] <- FALSE
 
-  ## build logical mask for variants that segregate as an autosomal dominant trait
-  adomMask <- vector(mode="logical", length=nvariants) ## assume default values are FALSE
-
   if (class(vObj) == "VRanges") {
     nauto <- sum(autosomalMask)
     idx <- split(1:nauto, sampleNames(vObj[autosomalMask]))
@@ -239,6 +242,10 @@ setMethod("autosomalDominant", signature(param="VariantFilteringParam"),
     adomMask[autosomalMask] <- mask
   } else if (class(vObj) == "CollapsedVCF")
     adomMask[autosomalMask] <- uaMask
+  else
+    warning(paste(sprintf("object 'vObj' has class %s, unknown to this function.",
+                          class(vObj)),
+                  "As a consequence, no variants are selected as autosomal dominant."))
 
   adomMask
 }
@@ -251,5 +258,5 @@ setMethod("autosomalDominant", signature(param="VariantFilteringParam"),
   pedDf <- .readPEDfile(param(x)$pedFilename)
 
   .autosomalDominantMask(vObj=allVariants(x, groupBy="nothing"), pedDf=pedDf,
-                                          bsgenome=param(x)$bsgenome, use="everything")
+                         bsgenome=param(x)$bsgenome, use="everything")
 }

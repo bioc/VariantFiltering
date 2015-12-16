@@ -30,10 +30,6 @@ setMethod("autosomalRecessiveHomozygous", signature(param="VariantFilteringParam
 
   pedDf <- .readPEDfile(ped)
 
-  ## assuming Phenotype == 2 means affected and Phenotype == 1 means unaffected
-  if (sum(pedDf$Phenotype  == 2) < 1)
-    stop("No affected individuals detected. Something is wrong with the PED file.")
-  
   unaff <- pedDf[pedDf$Phenotype == 1, ]
   aff <- pedDf[pedDf$Phenotype == 2, ]
   
@@ -73,6 +69,7 @@ setMethod("autosomalRecessiveHomozygous", signature(param="VariantFilteringParam
       if (any(missingMask) && use == "everything")
         unaffgt[unaffgt == "." | unaffgt == "./." | unaffgt == ".|."] <- NA_character_
       carriersMask <- unaffgt == "0/1" | unaffgt == "0|1" | unaffgt == "1|0"
+      ## carriersMask <- geno(vcf)$GT[, unaff$IndividualID, drop=FALSE] == "0/1"
       carriersMask <- apply(carriersMask, 1, all)
       rm(unaffgt)
     }
@@ -81,7 +78,8 @@ setMethod("autosomalRecessiveHomozygous", signature(param="VariantFilteringParam
     if (any(missingMask) && use == "everything")
       affgt[affgt == "." | affgt == "./." | affgt == ".|."] <- NA_character_
     affectedMask <- affgt == "1/1" | affgt == "1|1"
-    affectedMask <- rowSums(affectedMask) == nrow(aff)
+    ## affectedMask <- geno(vcf)$GT[, aff$IndividualID, drop=FALSE] == "1/1"
+    affectedMask <- apply(affectedMask, 1, all)
     rm(affgt)
 
     caMask <- carriersMask & affectedMask
@@ -198,6 +196,12 @@ setMethod("autosomalRecessiveHomozygous", signature(param="VariantFilteringParam
                                                        seqlevelsStyle(vObj),
                                                        group="auto")
 
+  ## build logical mask for variants that segregate as an autosomal recessive homozygous trait
+  arhomMask <- vector(mode="logical", length=nvariants) ## assume default values are FALSE
+
+  if (!any(autosomalMask))
+    return(arhomMask)
+
   ## fetch genotypes
   gt <- NULL
   if (class(vObj) == "VRanges")
@@ -239,9 +243,6 @@ setMethod("autosomalRecessiveHomozygous", signature(param="VariantFilteringParam
   ## variants ultimately set to NA are discarded (should this be tuned by an argument?)
   caMask[is.na(caMask)] <- FALSE
 
-  ## build logical mask for variants that segregate as an autosomal recessive homozygous trait
-  arhomMask <- vector(mode="logical", length=nvariants) ## assume default values are FALSE
-
   if (class(vObj) == "VRanges") {
     nauto <- sum(autosomalMask)
     idx <- split(1:nauto, sampleNames(vObj[autosomalMask]))
@@ -250,6 +251,10 @@ setMethod("autosomalRecessiveHomozygous", signature(param="VariantFilteringParam
     arhomMask[autosomalMask] <- mask
   } else if (class(vObj) == "CollapsedVCF")
     arhomMask[autosomalMask] <- caMask
+  else
+    warning(paste(sprintf("object 'vObj' has class %s, unknown to this function.",
+                          class(vObj)),
+                  "As a consequence, no variants are selected as autosomal recessive homozygous."))
 
   arhomMask
 }
