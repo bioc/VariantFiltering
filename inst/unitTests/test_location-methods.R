@@ -10,14 +10,16 @@ test_location_annotations <- function() {
 
   ## these are variants that pass quality filters and affect 5' and 3' ss
   ## idsFive <- c("rs760352870", "rs11910504", "rs3764880") TxDb.Hsapiens.UCSC.hg19.knownGene rel 3.21
-  idsFive <- c("rs760352870", "rs34310744", "rs11910504", "rs3764880") ## rel 3.22
+  ## idsFive <- c("rs760352870", "rs34310744", "rs11910504", "rs3764880") ## rel 3.22
+  idsFive <- c("rs760352870", "rs34310744", "rs11910504", "rs3764880", "rs572013") ## rel 3.24
   checkTrue(all(fv[[1]]$VARID[fv[[1]]$LOCATION == "fiveSpliceSite"] == idsFive))
 
-  ## rel 3.21
   ## idsThree <- c("rs1153275", "rs144475501", "rs220312", "rs2839260",
-  ##               "rs6003299", "rs11568185")
-  idsThree <- c("rs1015518", "rs3761264", "rs1153275", "rs144475501", "rs220312",
-		"rs1475891", "rs2839260", "rs11568185") ## rel 3.22
+  ##               "rs6003299", "rs11568185") ## rel 3.21
+  ## idsThree <- c("rs1015518", "rs3761264", "rs1153275", "rs144475501", "rs220312",
+  ##               "rs1475891", "rs2839260", "rs11568185") ## rel 3.22
+  idsThree <- c("rs1015518", "rs3761264", "rs2738785", "rs1153275", "rs144475501",
+                "rs220312", "rs1475891", "rs2839260", "rs11568185") ## rel 3.24
   checkTrue(all(unique(fv[[1]]$VARID[fv[[1]]$LOCATION == "threeSpliceSite"]) == idsThree))
 
   ## frameshifts
